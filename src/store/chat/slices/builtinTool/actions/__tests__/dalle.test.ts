@@ -9,10 +9,14 @@ import { useChatStore } from '@/store/chat';
 import { chatSelectors } from '@/store/chat/selectors';
 import { useFileStore } from '@/store/file';
 import { DallEImageItem } from '@/types/tool/dalle';
+import * as compressImageFileModule from '@/utils/compressImageFile';
 
 describe('chatToolSlice - dalle', () => {
   describe('generateImageFromPrompts', () => {
     it('should generate images from prompts, update items, and upload images', async () => {
+      vi.spyOn(compressImageFileModule, 'compressImageFileWithLimit').mockImplementation(
+        async (file) => file,
+      );
       const { result } = renderHook(() => useChatStore());
 
       const initialMessageContent = JSON.stringify([
