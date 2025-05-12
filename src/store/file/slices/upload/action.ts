@@ -82,7 +82,18 @@ export const createFileUploadSlice: StateCreator<
     return { ...res, dimensions, filename: metadata.filename };
   },
   uploadWithProgress: async ({ file, onStatusUpdate, knowledgeBaseId, skipCheckFileType }) => {
-    const fileArrayBuffer = await file.arrayBuffer();
+    // Compress image files before upload
+    let fileToUpload = file;
+    if (fileToUpload.type && fileToUpload.type.startsWith('image/')) {
+      const { compressImageFileWithLimit } = await import('@/utils/compressImageFile');
+      fileToUpload = await compressImageFileWithLimit(fileToUpload, {
+        maxLongSide: 1568,
+        maxShortSide: 768,
+        maxSizeBytes: 19 * 1024 * 1024,
+        mimeType: 'image/webp',
+      });
+    }
+    const fileArrayBuffer = await fileToUpload.arrayBuffer();
 
     // 1. extract image dimensions if applicable
     const dimensions = await getImageDimensions(file);
@@ -104,7 +115,7 @@ export const createFileUploadSlice: StateCreator<
     }
     // 3. if file don't exist, need upload files
     else {
-      const { data, success } = await uploadService.uploadFileToS3(file, {
+      const { data, success } = await uploadService.uploadFileToS3(fileToUpload, {
         onNotSupported: () => {
           onStatusUpdate?.({ id: file.name, type: 'removeFile' });
           message.info({
@@ -147,7 +158,7 @@ export const createFileUploadSlice: StateCreator<
         hash,
         metadata,
         name: file.name,
-        size: file.size,
+        size: fileToUpload.size,
         url: metadata.path || checkStatus.url,
       },
       knowledgeBaseId,
