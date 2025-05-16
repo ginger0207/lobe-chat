@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 
 import { checkAuth } from '@/app/(backend)/middleware/auth';
-import { ChatCompletionErrorPayload, ModelProvider } from '@/libs/model-runtime';
+import {
+  AGENT_RUNTIME_ERROR_SET,
+  AgentRuntime,
+  ChatCompletionErrorPayload,
+  ModelProvider,
+} from '@/libs/model-runtime';
 import { initAgentRuntimeWithUserPayload } from '@/server/modules/AgentRuntime';
 import { ChatErrorType } from '@/types/fetch';
 import { createErrorResponse } from '@/utils/errorResponse';
@@ -10,17 +15,24 @@ export const runtime = 'edge';
 
 const noNeedAPIKey = (provider: string) => [ModelProvider.OpenRouter].includes(provider as any);
 
-export const GET = checkAuth(async (req, { params, jwtPayload }) => {
+export const GET = checkAuth(async (req, { params, jwtPayload, createRuntime }) => {
   const { provider } = await params;
 
   try {
-    const hasDefaultApiKey = jwtPayload.apiKey || 'dont-need-api-key-for-model-list';
+    // ============  1. init model runtime   ============ //
+    let agentRuntime: AgentRuntime;
+    if (createRuntime) {
+      agentRuntime = createRuntime(jwtPayload);
+    } else {
+      const hasDefaultApiKey = jwtPayload.apiKey || 'dont-need-api-key-for-model-list';
 
-    const agentRuntime = await initAgentRuntimeWithUserPayload(provider, {
-      ...jwtPayload,
-      apiKey: noNeedAPIKey(provider) ? hasDefaultApiKey : jwtPayload.apiKey,
-    });
+      agentRuntime = await initAgentRuntimeWithUserPayload(provider, {
+        ...jwtPayload,
+        apiKey: noNeedAPIKey(provider) ? hasDefaultApiKey : jwtPayload.apiKey,
+      });
+    }
 
+    // ============  2. fetch models list   ============ //
     const list = await agentRuntime.models();
 
     return NextResponse.json(list);
@@ -32,8 +44,10 @@ export const GET = checkAuth(async (req, { params, jwtPayload }) => {
     } = e as ChatCompletionErrorPayload;
 
     const error = errorContent || e;
+
+    const logMethod = AGENT_RUNTIME_ERROR_SET.has(errorType as string) ? 'warn' : 'error';
     // track the error at server side
-    console.error(`Route: [${provider}] ${errorType}:`, error);
+    console[logMethod](`Route: [${provider}] ${errorType}:`, error);
 
     return createErrorResponse(errorType, { error, ...res, provider });
   }
