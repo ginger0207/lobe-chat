@@ -154,7 +154,7 @@ const Thinking = memo<ThinkingProps>(({ content, duration, thinking, style, cita
             }}
           >
             {typeof content === 'string' ? (
-              <Markdown animated={thinking} citations={citations} variant={'chat'}>
+              <Markdown citations={citations} variant={'chat'}>
                 {content}
               </Markdown>
             ) : (
