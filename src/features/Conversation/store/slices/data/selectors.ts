@@ -160,6 +160,16 @@ const findBlockById = (
       const block = message.children.find((child) => child.id === blockId);
       if (block) return block;
     }
+    // Post-task summary blocks live in a separate field on virtual
+    // assistantGroup messages so they render AFTER `<SignalCallbacks>`
+    // (). Same lookup contract as `children` — the renderer
+    // identifies blocks by id regardless of which slot they came from.
+    if ((message as { taskCompletions?: AssistantContentBlock[] }).taskCompletions) {
+      const block = (
+        message as { taskCompletions?: AssistantContentBlock[] }
+      ).taskCompletions!.find((child) => child.id === blockId);
+      if (block) return block;
+    }
     if (message.compressedMessages) {
       const inCompressedMessages = findBlockById(blockId, message.compressedMessages);
       if (inCompressedMessages) return inCompressedMessages;
@@ -198,9 +208,22 @@ const getBlockHasTools =
     return !!tools && tools.length > 0;
   };
 
+/** 1-based position of a verify message among all verify messages in the thread. */
+const getVerifyOrdinal = (id: string) => (s: State) => {
+  let ordinal = 0;
+  for (const message of s.displayMessages) {
+    if (message.role === 'verify') {
+      ordinal += 1;
+      if (message.id === id) return ordinal;
+    }
+  }
+  return ordinal || 1;
+};
+
 export const dataSelectors = {
   currentTopicSummary,
   dbMessages,
+  getVerifyOrdinal,
   displayMessageIds,
   displayMessages,
   findLastMessageId,

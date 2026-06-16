@@ -2,7 +2,11 @@ import { parseCronPattern } from '@lobechat/utils/cron';
 import { describe, expect, it } from 'vitest';
 
 import { INTEREST_AREA_KEYS } from './interests';
-import { TASK_TEMPLATE_FALLBACK_CATEGORIES, taskTemplates } from './taskTemplate';
+import {
+  TASK_TEMPLATE_FALLBACK_CATEGORIES,
+  TASK_TEMPLATE_RECOMMEND_COUNT,
+  taskTemplates,
+} from './taskTemplate';
 
 const CRON_FIELDS = 5;
 const VALID_INTEREST_KEYS = new Set(INTEREST_AREA_KEYS);
@@ -53,7 +57,7 @@ describe('taskTemplates', () => {
     for (const t of taskTemplates) {
       if (!t.optionalSkills) continue;
       for (const spec of t.optionalSkills) {
-        expect(['klavis', 'lobehub'], `template ${t.id} optional source`).toContain(spec.source);
+        expect(['composio', 'lobehub'], `template ${t.id} optional source`).toContain(spec.source);
         expect(
           spec.provider.length,
           `template ${t.id} optional provider "${spec.provider}"`,
@@ -73,5 +77,9 @@ describe('taskTemplates', () => {
         ).toBe(false);
       }
     }
+  });
+
+  it('keeps the recommendation default positive', () => {
+    expect(TASK_TEMPLATE_RECOMMEND_COUNT).toBeGreaterThan(0);
   });
 });

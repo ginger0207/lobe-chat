@@ -7,6 +7,7 @@ import { type PartialDeep } from 'type-fest';
 
 import { DEFAULT_PREFERENCE } from '@/const/user';
 import { mutate, useOnlyFetchOnceSWR } from '@/libs/swr';
+import { userKeys } from '@/libs/swr/keys';
 import { userService } from '@/services/user';
 import { type StoreSetter } from '@/store/types';
 import { type UserStore } from '@/store/user';
@@ -20,7 +21,6 @@ import { userGeneralSettingsSelectors } from '../settings/selectors';
 
 const n = setNamespace('common');
 
-const GET_USER_STATE_KEY = 'initUserState';
 /**
  * Common actions
  */
@@ -40,7 +40,7 @@ export class CommonActionImpl {
   }
 
   refreshUserState = async (): Promise<void> => {
-    await mutate(GET_USER_STATE_KEY);
+    await mutate(userKeys.initState());
   };
 
   updateAvatar = async (avatar: string): Promise<void> => {
@@ -54,6 +54,10 @@ export class CommonActionImpl {
   };
 
   updateInterests = async (interests: string[]): Promise<void> => {
+    const previousUser = this.#get().user;
+    if (previousUser) {
+      this.#set({ user: { ...previousUser, interests } }, false, n('updateInterests/optimistic'));
+    }
     await userService.updateInterests(interests);
     await this.#get().refreshUserState();
   };
@@ -69,7 +73,7 @@ export class CommonActionImpl {
 
   useCheckTrace = (shouldFetch: boolean): SWRResponse<any> => {
     return useSWR<boolean>(
-      shouldFetch ? 'checkTrace' : null,
+      shouldFetch ? userKeys.checkTrace() : null,
       () => {
         const telemetry = userGeneralSettingsSelectors.telemetry(this.#get());
 
@@ -93,7 +97,7 @@ export class CommonActionImpl {
     },
   ): SWRResponse => {
     return useOnlyFetchOnceSWR<UserInitializationState>(
-      !!isLogin || isDesktop ? GET_USER_STATE_KEY : null,
+      !!isLogin || isDesktop ? userKeys.initState() : null,
       () => userService.getUserState(),
       {
         onError: (error) => {

@@ -389,13 +389,34 @@ describe('MessagesEngine', () => {
       expect(result).toBeDefined();
     });
 
-    it('should default to enabled without file URLs', async () => {
-      const params = createBasicParams();
+    it('should default to enabled with file URLs', async () => {
+      const params = createBasicParams({
+        messages: [
+          {
+            content: 'Read this',
+            createdAt: Date.now(),
+            fileList: [
+              {
+                fileType: 'text/plain',
+                id: 'file1',
+                name: 'test.txt',
+                size: 100,
+                url: 'https://files.example.com/test.txt',
+              },
+            ],
+            id: 'msg-1',
+            role: 'user',
+            updatedAt: Date.now(),
+          } as UIChatMessage,
+        ],
+      });
       const engine = new MessagesEngine(params);
 
-      // Should not throw
       const result = await engine.process();
-      expect(result).toBeDefined();
+      const userMessage = result.messages.find((message) => message.role === 'user');
+      const content = userMessage?.content as any[];
+
+      expect(content[0].text).toContain('url="https://files.example.com/test.txt"');
     });
   });
 
@@ -591,7 +612,7 @@ Document content here.
       expect(userMessage?.content).toContain('<active_topic_document>');
       expect(userMessage?.content).toContain('document_id="docs_123"');
       expect(userMessage?.content).toContain('agent_document_id="agd_123"');
-      expect(userMessage?.content).toContain('target="currentTopic"');
+      expect(userMessage?.content).toContain('scope="currentTopic"');
       expect(userMessage?.content).toContain('Do not use PageAgent editor tools');
       expect(result.metadata.activeTopicDocumentContextInjected).toBe(true);
     });

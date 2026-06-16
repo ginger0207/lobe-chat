@@ -18,6 +18,7 @@ import {
   KeyRound,
   Map,
   MessageCircleIcon,
+  MonitorSmartphoneIcon,
   PaletteIcon,
   Sparkles,
   TerminalSquare,
@@ -35,7 +36,6 @@ import {
 } from '@/store/serverConfig';
 import { useUserStore } from '@/store/user';
 import { userProfileSelectors } from '@/store/user/slices/auth/selectors';
-import { labPreferSelectors } from '@/store/user/slices/preference/selectors/labPrefer';
 import { userGeneralSettingsSelectors } from '@/store/user/slices/settings/selectors';
 
 export enum SettingsGroupKey {
@@ -46,6 +46,8 @@ export enum SettingsGroupKey {
 }
 
 export interface CategoryItem {
+  /** Override the navigation URL. When omitted, Body derives the URL from `key`. */
+  href?: string;
   icon: any;
   key: SettingsTabs;
   label: string;
@@ -62,14 +64,13 @@ export const useCategory = () => {
   const { t: tAuth } = useTranslation('auth');
   const { t: tSubscription } = useTranslation('subscription');
   const mobile = useServerConfigStore((s) => s.isMobile);
-  const { hideDocs, showApiKeyManage } = useServerConfigStore(featureFlagsSelectors);
+  const { hideDocs, showApiKeyManage, showProvider } = useServerConfigStore(featureFlagsSelectors);
   const [avatar, username] = useUserStore((s) => [
     userProfileSelectors.userAvatar(s),
     userProfileSelectors.nickName(s),
   ]);
   const remoteServerUrl = useElectronStore(electronSyncSelectors.remoteServerUrl);
   const isDevMode = useUserStore((s) => userGeneralSettingsSelectors.config(s).isDevMode);
-  const enableMessenger = useUserStore(labPreferSelectors.enableMessenger);
 
   const avatarUrl = useMemo(() => {
     if (!avatar) return undefined;
@@ -99,6 +100,11 @@ export const useCategory = () => {
         key: SettingsTabs.Appearance,
         label: t('tab.appearance'),
       },
+      {
+        icon: MonitorSmartphoneIcon,
+        key: SettingsTabs.Devices,
+        label: t('tab.devices'),
+      },
       !mobile && {
         icon: KeyboardIcon,
         key: SettingsTabs.Hotkey,
@@ -117,7 +123,9 @@ export const useCategory = () => {
       title: t('group.common'),
     });
 
-    // Subscription group
+    // Personal subscription / billing items. Always shown when business
+    // features are enabled — workspace settings live under a separate
+    // `/:workspaceSlug/settings/*` surface and never share this sidebar.
     if (enableBusinessFeatures) {
       const subscriptionItems: CategoryItem[] = [
         { icon: Map, key: SettingsTabs.Plans, label: tSubscription('tab.plans') },
@@ -136,7 +144,9 @@ export const useCategory = () => {
 
     // Agent group
     const agentItems: CategoryItem[] = [
-      (!enableBusinessFeatures || isDevMode) && {
+      // Provider settings should not depend on Advanced tools: new users may need
+      // non-LobeHub providers, and desktop users often bring their own API keys.
+      showProvider && {
         icon: Brain,
         key: SettingsTabs.Provider,
         label: t('tab.provider'),
@@ -166,9 +176,7 @@ export const useCategory = () => {
         key: SettingsTabs.APIKey,
         label: tAuth('tab.apikey'),
       },
-      // Gated by Labs → Messenger; the lab flag also controls whether the
-      // verify-im binding flow is reachable.
-      enableMessenger && {
+      {
         icon: MessageCircleIcon,
         key: SettingsTabs.Messenger,
         label: t('tab.messenger'),
@@ -230,8 +238,8 @@ export const useCategory = () => {
     hideDocs,
     mobile,
     showApiKeyManage,
+    showProvider,
     isDevMode,
-    enableMessenger,
     avatarUrl,
     username,
   ]);

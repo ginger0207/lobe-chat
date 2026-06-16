@@ -11,10 +11,11 @@ import { useChatStore } from '@/store/chat';
 import { useUserStore } from '@/store/user';
 import { userGeneralSettingsSelectors } from '@/store/user/selectors';
 
+import AgentConfigError from './AgentConfigError';
 import { useSendMenuItems } from './useSendMenuItems';
 
-const emptyRightActions: ActionKeys[] = [];
-const promptTransformRightActions: ActionKeys[] = ['promptTransform'];
+const contextWindowRightActions: ActionKeys[] = ['contextWindow'];
+const promptTransformRightActions: ActionKeys[] = ['promptTransform', 'contextWindow'];
 
 /**
  * MainChatInput
@@ -32,36 +33,29 @@ const MainChatInput = memo(() => {
   const provider = useAgentStore(agentSelectors.currentAgentModelProvider);
   const isAgentConfigLoading = useAgentStore(agentSelectors.isAgentConfigLoading);
   const supportsImageOutput = useModelSupportImageOutput(model, provider);
-  const rightActions = supportsImageOutput ? promptTransformRightActions : emptyRightActions;
+  const rightActions = supportsImageOutput
+    ? promptTransformRightActions
+    : contextWindowRightActions;
 
-  const leftActions: ActionKeys[] = useMemo(
-    () => [
-      'model',
-      'search',
-      'memory',
-      'fileUpload',
-      'tools',
-      'typo',
-      ...(isDevMode ? (['params'] as ActionKeys[]) : []),
-      'mainToken',
-    ],
-    [isDevMode],
-  );
+  const leftActions: ActionKeys[] = useMemo(() => ['model', 'plus'], []);
 
   return (
-    <ChatInput
-      skipScrollMarginWithList
-      isConfigLoading={isAgentConfigLoading}
-      leftActions={leftActions}
-      rightActions={rightActions}
-      {...(isDevMode
-        ? { sendMenu: { items: sendMenuItems } }
-        : { sendButtonProps: { shape: 'round' } })}
-      onEditorReady={(instance) => {
-        // Sync to global ChatStore for compatibility with other features
-        useChatStore.setState({ mainInputEditor: instance });
-      }}
-    />
+    <>
+      <AgentConfigError />
+      <ChatInput
+        skipScrollMarginWithList
+        isConfigLoading={isAgentConfigLoading}
+        leftActions={leftActions}
+        rightActions={rightActions}
+        {...(isDevMode
+          ? { sendMenu: { items: sendMenuItems } }
+          : { sendButtonProps: { shape: 'round' } })}
+        onEditorReady={(instance) => {
+          // Sync to global ChatStore for compatibility with other features
+          useChatStore.setState({ mainInputEditor: instance });
+        }}
+      />
+    </>
   );
 });
 

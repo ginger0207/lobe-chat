@@ -5,6 +5,24 @@ import { defineFixtures, single, variants } from './_helpers';
 export default defineFixtures({
   identifier: 'lobe-agent',
   fixtures: {
+    analyzeVisualMedia: single({
+      args: {
+        question: 'Describe the primary controls and layout in this interface.',
+        refs: ['msg_devtools.image_1'],
+      },
+      pluginState: {
+        files: [
+          {
+            id: 'image_devtools_interface',
+            name: 'interface-preview.png',
+            ref: 'msg_devtools.image_1',
+            type: 'image',
+          },
+        ],
+        model: 'gpt-5.4',
+        provider: 'openai',
+      },
+    }),
     callSubAgent: single({
       pluginState: {
         task: {
@@ -12,20 +30,6 @@ export default defineFixtures({
           instruction:
             'Run the desktop router sync test and confirm /devtools only appears in development.',
         },
-      },
-    }),
-    callSubAgents: single({
-      pluginState: {
-        tasks: [
-          {
-            description: 'Audit builtin render coverage',
-            instruction: 'Find any registered render without a usable sample fixture.',
-          },
-          {
-            description: 'Check route gating',
-            instruction: 'Make sure production builds do not expose /devtools.',
-          },
-        ],
       },
     }),
     clearTodos: single({

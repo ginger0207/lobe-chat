@@ -4,6 +4,22 @@ import { ClaudeCodeIdentifier } from '@lobechat/builtin-tool-claude-code/client'
 
 import { defineFixtures, single, variants } from './_helpers';
 
+const linearIssueApiName = 'mcp__claude_ai_Linear__save_issue';
+const linearIssueResult = {
+  description:
+    '## 背景\n\n当前客户端侧有三种 agent runtime 路径，它们都在处理同一类 agent run 生命周期，但生命周期控制点不一致。\n\n## 目标\n\n建立一套共享的 post-complete hooks，让 queue message、topic title、Agent Signal、unread completion 和 notification 都通过同一入口收敛。',
+  id: 'LOBE-10205',
+  links: [
+    {
+      title: 'PR #15766: refactor(chat): unify agent run lifecycle',
+      url: 'https://github.com/lobehub/lobehub/pull/15766',
+    },
+  ],
+  state: { name: 'In Review' },
+  title: '统一三种客户端 Agent Runtime 的 run 生命周期 hooks',
+  url: 'https://linear.app/lobehub/issue/LOBE-10205',
+};
+
 export default defineFixtures({
   identifier: ClaudeCodeIdentifier,
   meta: {
@@ -44,6 +60,18 @@ export default defineFixtures({
       name: 'Skill',
     },
     {
+      description: 'Create a new task (CC 2.1.143+ replacement for TodoWrite).',
+      name: 'TaskCreate',
+    },
+    {
+      description: 'Inspect a single task by id.',
+      name: 'TaskGet',
+    },
+    {
+      description: 'List all tasks.',
+      name: 'TaskList',
+    },
+    {
       description: 'Read output from a background task.',
       name: 'TaskOutput',
     },
@@ -52,7 +80,11 @@ export default defineFixtures({
       name: 'TaskStop',
     },
     {
-      description: 'Track todo progress.',
+      description: 'Update an existing task by id.',
+      name: 'TaskUpdate',
+    },
+    {
+      description: 'Track todo progress (pre-2.1.143 legacy).',
       name: 'TodoWrite',
     },
     {
@@ -60,8 +92,20 @@ export default defineFixtures({
       name: 'ToolSearch',
     },
     {
+      description: 'Fetch a URL and answer a prompt about it.',
+      name: 'WebFetch',
+    },
+    {
+      description: 'Search the web.',
+      name: 'WebSearch',
+    },
+    {
       description: 'Write a new file.',
       name: 'Write',
+    },
+    {
+      description: 'Update a Linear issue through MCP.',
+      name: linearIssueApiName,
     },
   ],
   fixtures: {
@@ -165,6 +209,124 @@ export default defineFixtures({
       args: { task_id: 'task-build-2025-04-25' },
       content: 'Background task stopped (exit code 0).',
     }),
+    // Task tools — the renderer reads `pluginState.todos.items`, which the
+    // CC adapter synthesizes from the accumulated TaskCreate / TaskUpdate /
+    // TaskList history. Fixtures supply that snapshot directly.
+    TaskCreate: variants([
+      {
+        args: {
+          activeForm: 'Reading hosts',
+          description: 'Read /etc/hosts and capture the content.',
+          subject: 'Read hosts',
+        },
+        content: 'Task #1 created successfully: Read hosts',
+        label: 'First create',
+        pluginState: {
+          todos: {
+            items: [{ id: '1', status: 'todo', text: 'Read hosts' }],
+            updatedAt: '2026-05-16T07:23:19.639Z',
+          },
+        },
+      },
+      {
+        args: {
+          activeForm: 'Drafting summary',
+          description: 'Summarize findings.',
+          subject: 'Draft summary',
+        },
+        content: 'Task #3 created successfully: Draft summary',
+        label: 'Third create with prior progress',
+        pluginState: {
+          todos: {
+            items: [
+              { id: '1', status: 'completed', text: 'Read hosts' },
+              { id: '2', status: 'processing', text: 'Counting lines' },
+              { id: '3', status: 'todo', text: 'Draft summary' },
+            ],
+            updatedAt: '2026-05-16T07:24:00.000Z',
+          },
+        },
+      },
+    ]),
+    TaskGet: single({
+      args: { taskId: '1' },
+      content: 'Task #1: Read hosts\nStatus: in_progress\nDescription: Read /etc/hosts content',
+    }),
+    TaskList: variants([
+      {
+        args: {},
+        content:
+          '#1 [in_progress] Read hosts\n#2 [pending] Count lines\n#3 [pending] Draft summary',
+        label: 'Mixed progress',
+        pluginState: {
+          todos: {
+            items: [
+              { id: '1', status: 'processing', text: 'Read hosts' },
+              { id: '2', status: 'todo', text: 'Count lines' },
+              { id: '3', status: 'todo', text: 'Draft summary' },
+            ],
+            updatedAt: '2026-05-16T07:24:30.000Z',
+          },
+        },
+      },
+      {
+        args: {},
+        content:
+          '#1 [completed] Read hosts\n#2 [completed] Count lines\n#3 [completed] Draft summary',
+        label: 'All done',
+        pluginState: {
+          todos: {
+            items: [
+              { id: '1', status: 'completed', text: 'Read hosts' },
+              { id: '2', status: 'completed', text: 'Count lines' },
+              { id: '3', status: 'completed', text: 'Draft summary' },
+            ],
+            updatedAt: '2026-05-16T07:25:00.000Z',
+          },
+        },
+      },
+    ]),
+    TaskUpdate: variants([
+      {
+        args: { status: 'in_progress', taskId: '1' },
+        content: 'Updated task #1 status',
+        label: 'Mark in_progress',
+        pluginState: {
+          todos: {
+            items: [
+              { id: '1', status: 'processing', text: 'Read hosts' },
+              { id: '2', status: 'todo', text: 'Count lines' },
+            ],
+            updatedAt: '2026-05-16T07:23:35.000Z',
+          },
+        },
+      },
+      {
+        args: { status: 'completed', taskId: '1' },
+        content: 'Updated task #1 status',
+        label: 'Mark completed',
+        pluginState: {
+          todos: {
+            items: [
+              { id: '1', status: 'completed', text: 'Read hosts' },
+              { id: '2', status: 'processing', text: 'Counting lines' },
+            ],
+            updatedAt: '2026-05-16T07:23:50.000Z',
+          },
+        },
+      },
+      {
+        args: { status: 'deleted', taskId: '2' },
+        content: 'Deleted task #2',
+        label: 'Mark deleted',
+        pluginState: {
+          todos: {
+            items: [{ id: '1', status: 'processing', text: 'Read hosts' }],
+            updatedAt: '2026-05-16T07:24:10.000Z',
+          },
+        },
+      },
+    ]),
     TodoWrite: variants([
       {
         args: {
@@ -232,11 +394,35 @@ export default defineFixtures({
       args: { max_results: 5, query: 'select:Read,Edit,Grep' },
       content: 'Loaded 3 deferred tool schemas: Read, Edit, Grep.',
     }),
+    WebFetch: single({
+      args: {
+        prompt: 'Summarize the key changes in the latest release.',
+        url: 'https://github.com/lobehub/lobe-chat/releases/latest',
+      },
+      content:
+        '## LobeChat v1.0\n\n- New agent runtime with tool streaming\n- Faster cold start\n- Fixed a memory leak in the chat store',
+    }),
+    WebSearch: single({
+      args: {
+        allowed_domains: ['developer.mozilla.org'],
+        query: 'CSS container queries browser support',
+      },
+      content:
+        '1. Container queries — MDN — developer.mozilla.org/en-US/docs/Web/CSS/CSS_containment\n2. Can I use: CSS Container Queries — caniuse.com/css-container-queries',
+    }),
     Write: single({
       args: {
         content: "export const previewEnabled = process.env.NODE_ENV === 'development';\n",
         file_path: 'src/routes/(main)/devtools/featureFlag.ts',
       },
+    }),
+    [linearIssueApiName]: single({
+      args: {
+        id: 'LOBE-10205',
+        links: linearIssueResult.links,
+        state: 'In Review',
+      },
+      content: JSON.stringify(linearIssueResult),
     }),
   },
 });

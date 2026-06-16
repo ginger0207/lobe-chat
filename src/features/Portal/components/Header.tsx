@@ -3,18 +3,19 @@
 import { DESKTOP_HEADER_ICON_SMALL_SIZE } from '@lobechat/const';
 import { ActionIcon, Flexbox } from '@lobehub/ui';
 import { ArrowLeft, X } from 'lucide-react';
-import { type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { memo } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 
 import { SESSION_CHAT_TOPIC_PAGE_URL, SESSION_CHAT_TOPIC_URL } from '@/const/url';
 import NavHeader from '@/features/NavHeader';
+import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { useChatStore } from '@/store/chat';
 import { chatPortalSelectors } from '@/store/chat/selectors';
 
-const Header = memo<{ title: ReactNode }>(({ title }) => {
+const Header = memo<{ rightExtra?: ReactNode; title: ReactNode }>(({ title, rightExtra }) => {
   const location = useLocation();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceAwareNavigate();
   const params = useParams<{ aid?: string; topicId?: string }>();
   const [canGoBack, goBack, clearPortalStack] = useChatStore((s) => [
     chatPortalSelectors.canGoBack(s),
@@ -39,18 +40,21 @@ const Header = memo<{ title: ReactNode }>(({ title }) => {
         </Flexbox>
       }
       right={
-        <ActionIcon
-          icon={X}
-          size={DESKTOP_HEADER_ICON_SMALL_SIZE}
-          onClick={() => {
-            if (params.aid && params.topicId && isTopicPageRoute) {
-              navigate(SESSION_CHAT_TOPIC_URL(params.aid, params.topicId));
-              return;
-            }
+        <Fragment>
+          {rightExtra}
+          <ActionIcon
+            icon={X}
+            size={DESKTOP_HEADER_ICON_SMALL_SIZE}
+            onClick={() => {
+              if (params.aid && params.topicId && isTopicPageRoute) {
+                navigate(SESSION_CHAT_TOPIC_URL(params.aid, params.topicId));
+                return;
+              }
 
-            clearPortalStack();
-          }}
-        />
+              clearPortalStack();
+            }}
+          />
+        </Fragment>
       }
       styles={{
         left: {

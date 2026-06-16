@@ -111,6 +111,48 @@ export interface AuditSafePathsResult {
   allSafe: boolean;
 }
 
+export type LocalFilePreviewAccept = 'image';
+
+export interface LocalFilePreviewUrlParams {
+  accept?: LocalFilePreviewAccept;
+  path: string;
+  workingDirectory: string;
+}
+
+export interface LocalFilePreviewUrlResult {
+  error?: string;
+  success: boolean;
+  url?: string;
+}
+
+export interface LocalFilePreviewText {
+  content: string;
+  contentType: string;
+  type: 'text';
+}
+
+export interface LocalFilePreviewImage {
+  base64: string;
+  contentType: string;
+  type: 'image';
+}
+
+export interface LocalFilePreviewUnsupported {
+  contentType: string;
+  type: 'binary' | 'pdf' | 'video';
+}
+
+export type LocalFilePreview =
+  | LocalFilePreviewImage
+  | LocalFilePreviewText
+  | LocalFilePreviewUnsupported;
+
+export interface LocalFilePreviewResult {
+  error?: string;
+  preview?: LocalFilePreview;
+  success: boolean;
+}
+
 export interface LocalReadFileResult {
   /**
    * Character count of the content within the specified `loc` range.
@@ -223,12 +265,22 @@ export interface RunCommandResult {
 export interface GetCommandOutputParams {
   filter?: string;
   shell_id: string;
+  /**
+   * Maximum time to wait for this observation before returning.
+   * Does not kill the process when the timeout elapses.
+   */
+  timeout?: number;
 }
 
 export interface GetCommandOutputResult {
   error?: string;
+  /**
+   * Present only after the command has exited.
+   * `0` means success, non-zero means the command finished with an error.
+   * `undefined` means the command is still running.
+   */
+  exit_code?: number;
   output: string;
-  running: boolean;
   stderr: string;
   stdout: string;
   success: boolean;
@@ -243,7 +295,10 @@ export interface KillCommandResult {
   success: boolean;
 }
 
-// Grep types
+// Grep types — declared locally to keep this package leaf-only (no reverse
+// dependency on `@lobechat/local-file-shell`). The shape mirrors the
+// definition in `local-file-shell/types`; the two must stay in sync, but
+// they're structurally compatible by design.
 export interface GrepContentParams {
   '-A'?: number;
   '-B'?: number;
@@ -253,13 +308,14 @@ export interface GrepContentParams {
   'glob'?: string;
   'head_limit'?: number;
   'multiline'?: boolean;
-  'output_mode'?: 'content' | 'files_with_matches' | 'count';
+  'output_mode'?: 'content' | 'count' | 'files_with_matches';
+  /** Legacy alias for `scope`. Takes precedence when set; prefer `scope` (the manifest-documented name) for new callers. */
   'path'?: string;
   'pattern': string;
-  /** Working directory scope. When `path` is not specified, used as the default search location. */
+  /** Working directory scope. Limits the search to this directory. Defaults to `process.cwd()`. */
   'scope'?: string;
   /** Preferred search tool: 'rg' | 'ag' | 'grep' */
-  'tool'?: 'rg' | 'ag' | 'grep';
+  'tool'?: 'ag' | 'grep' | 'rg';
   'type'?: string;
 }
 
@@ -272,7 +328,7 @@ export interface GrepContentResult {
   total_matches: number;
 }
 
-// Glob types
+// Glob types — same rationale as Grep above.
 export interface GlobFilesParams {
   pattern: string;
   /** Working directory scope. When `pattern` is relative, it is joined with this scope. Defaults to the current working directory. */
@@ -397,4 +453,63 @@ export interface ResolveSkillResourcePathResult {
   error?: string;
   fullPath?: string;
   success: boolean;
+}
+
+export interface ProjectSkillItem {
+  description?: string;
+  /** Total number of regular files under `skillDir` (recursive, including `SKILL.md`). */
+  fileCount: number;
+  /**
+   * Relative paths (within `skillDir`) of all regular files under the skill,
+   * sorted lexicographically and capped to a safe maximum. Includes `SKILL.md`.
+   */
+  files: string[];
+  name: string;
+  /** Absolute path to the SKILL.md file. */
+  path: string;
+  /** Directory containing the SKILL.md (e.g. `<root>/.agents/skills/spa-routes`). */
+  skillDir: string;
+  /** Source directory the skill was discovered in. */
+  source: '.agents/skills' | '.claude/skills';
+}
+
+export interface ListProjectSkillsParams {
+  /** Working directory used to resolve the project root. */
+  scope: string;
+}
+
+export interface ListProjectSkillsResult {
+  root: string;
+  skills: ProjectSkillItem[];
+  /** Source directory actually scanned (after fallback resolution). */
+  source: ProjectSkillItem['source'] | null;
+}
+
+export interface InitWorkspaceParams {
+  /** Working directory used to resolve the project root. */
+  scope: string;
+}
+
+/**
+ * Project-root agent instructions (`AGENTS.md` / `CLAUDE.md`) read in one shot
+ * during workspace init. Full body is carried (capped) so the server can inject
+ * it into the system role and the web UI can render it without a second call.
+ * Mirrors `WorkspaceInstructions` in `@lobechat/types` (kept local — this is a
+ * leaf package with no `@lobechat/types` dependency).
+ */
+export interface WorkspaceInstructionsItem {
+  content: string;
+  source: 'AGENTS.md' | 'CLAUDE.md';
+}
+
+/**
+ * One-call workspace scan: project-root instructions + project skills (both
+ * `.agents/skills` and `.claude/skills`, merged). Mirrors `WorkspaceInitResult`
+ * in `@lobechat/types`; the server narrows `skills` to `ProjectSkillMeta` when
+ * caching onto `devices.workingDirs[].workspace`.
+ */
+export interface InitWorkspaceResult {
+  instructions: WorkspaceInstructionsItem[];
+  root: string;
+  skills: ProjectSkillItem[];
 }

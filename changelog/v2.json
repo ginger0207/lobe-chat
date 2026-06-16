@@ -1,5 +1,15 @@
 [
   {
+    "children": {},
+    "date": "2026-05-29",
+    "version": "2.2.1"
+  },
+  {
+    "children": {},
+    "date": "2026-05-18",
+    "version": "2.2.0"
+  },
+  {
     "children": {
       "features": [
         "support slack mpim and fix discord dm problem.",

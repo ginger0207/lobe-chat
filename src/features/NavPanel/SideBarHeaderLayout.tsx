@@ -1,6 +1,5 @@
 'use client';
 
-import type { ActionIconProps } from '@lobehub/ui';
 import { Flexbox, Icon, Text } from '@lobehub/ui';
 import type { BreadcrumbProps } from 'antd';
 import { Breadcrumb } from 'antd';
@@ -9,17 +8,15 @@ import { ChevronRightIcon, HomeIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { memo } from 'react';
 import { flushSync } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 
 import { DESKTOP_HEADER_ICON_SMALL_SIZE } from '@/const/layoutTokens';
-import { isDesktop } from '@/const/version';
+import { useWorkspaceAwareNavigate } from '@/features/Workspace/useWorkspaceAwareNavigate';
 import { isModifierClick } from '@/utils/navigation';
 
 import BackButton from './components/BackButton';
 import ToggleLeftPanelButton from './ToggleLeftPanelButton';
 
 const prefixCls = 'ant';
-const SIDEBAR_HEADER_ACTION_ICON_SIZE: ActionIconProps['size'] = 'small';
 
 const styles = createStaticStyles(({ css, cssVar }) => ({
   breadcrumb: css`
@@ -43,13 +40,16 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
   `,
   container: css`
     overflow: hidden;
-    margin-block-start: ${isDesktop ? '' : '8px'};
   `,
 }));
+
+type BreadcrumbItem = NonNullable<BreadcrumbProps['items']>[number];
 
 interface SideBarHeaderLayoutProps {
   backTo?: string;
   breadcrumb?: BreadcrumbProps['items'];
+  /** Override the leading home breadcrumb item (defaults to home icon → `/`). */
+  homeItem?: BreadcrumbItem;
   left?: ReactNode;
   right?: ReactNode;
   showBack?: boolean;
@@ -63,9 +63,10 @@ const SideBarHeaderLayout = memo<SideBarHeaderLayoutProps>(
     backTo = '/',
     showBack = true,
     breadcrumb = [],
+    homeItem,
     showTogglePanelButton = true,
   }) => {
-    const navigate = useNavigate();
+    const navigate = useWorkspaceAwareNavigate();
     const leftContent = left ? (
       <Flexbox
         horizontal
@@ -91,7 +92,7 @@ const SideBarHeaderLayout = memo<SideBarHeaderLayoutProps>(
           className={styles.breadcrumb}
           separator={<Icon icon={ChevronRightIcon} />}
           items={[
-            {
+            homeItem ?? {
               href: '/',
               title: <Icon icon={HomeIcon} />,
             },

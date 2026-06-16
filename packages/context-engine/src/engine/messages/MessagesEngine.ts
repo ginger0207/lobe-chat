@@ -21,6 +21,7 @@ import {
   TasksFlattenProcessor,
   ToolCallProcessor,
   ToolMessageReorder,
+  VerifyMessageProcessor,
 } from '../../processors';
 import {
   ActiveTopicDocumentContextInjector,
@@ -138,6 +139,7 @@ export class MessagesEngine {
       provider,
       systemRole,
       inputTemplate,
+      enableAgentMode,
       enableHistoryCount,
       historyCount,
       forceFinish,
@@ -173,7 +175,6 @@ export class MessagesEngine {
     } = this.params;
 
     const isAgentBuilderEnabled = !!agentBuilderContext;
-    const isAgentManagementEnabled = !!agentManagementContext;
 
     const isGroupAgentBuilderEnabled = !!groupAgentBuilderContext;
     const isAgentGroupEnabled = agentGroup?.agentMap && Object.keys(agentGroup.agentMap).length > 0;
@@ -183,7 +184,14 @@ export class MessagesEngine {
     const hasSelectedSkills = (selectedSkills?.length ?? 0) > 0;
     const hasSelectedTools = (selectedTools?.length ?? 0) > 0;
 
-    const hasAgentDocuments = !!agentDocuments && agentDocuments.length > 0;
+    // Chat mode (`enableAgentMode === false`) suppresses agentic-only injectors:
+    // skill discovery (<available_skills>), agent documents, and the
+    // agent-management context (<current_agent> + <available_agents>).
+    // Anything else — system role, knowledge bases, memory, web-browsing tool
+    // prompts — remains untouched.
+    const isAgentMode = enableAgentMode !== false;
+    const isAgentManagementEnabled = !!agentManagementContext && isAgentMode;
+    const hasAgentDocuments = !!agentDocuments && agentDocuments.length > 0 && isAgentMode;
     // Page editor is enabled if either direct pageContentContext or initialContext.pageEditor is provided
     const isPageEditorEnabled = !!pageContentContext || !!initialContext?.pageEditor;
     const hasActiveTopicDocument = !!initialContext?.activeTopicDocument;
@@ -236,9 +244,12 @@ export class MessagesEngine {
       }),
       // System date
       new SystemDateProvider({ enabled: isSystemDateEnabled, timezone }),
-      // Skill context (available skills list + activated skill content)
+      // Skill context (available skills list + activated skill content).
+      // Disabled in chat mode — pairs with the tools-engine gate so the LLM
+      // sees neither the manifests nor the discovery prompt.
       new SkillContextProvider({
-        enabled: !!(skillsConfig?.enabledSkills && skillsConfig.enabledSkills.length > 0),
+        enabled:
+          isAgentMode && !!(skillsConfig?.enabledSkills && skillsConfig.enabledSkills.length > 0),
         enabledSkills: skillsConfig?.enabledSkills,
       }),
       // Tool system role (tool manifests and API definitions)
@@ -393,6 +404,9 @@ export class MessagesEngine {
       new TasksFlattenProcessor(),
       // Task message processing
       new TaskMessageProcessor(),
+      // Verify (delivery-checker) cards: drop empty UI-only ones; surface
+      // auto-repair failure feedback as a user turn for the repair run
+      new VerifyMessageProcessor(),
       // Supervisor role restore
       new SupervisorRoleRestoreProcessor(),
       // Compressed group role transform
@@ -426,7 +440,7 @@ export class MessagesEngine {
       // PlaceholderVariablesProcessor only walks `message.content`, so it MUST
       // run after the hoist or it would silently miss every placeholder buried
       // inside an assistantGroup. (Regression discovered while wiring lobehub
-      // skill identity placeholders — see LOBE-6882.)
+      // skill identity placeholders — see .)
       new PlaceholderVariablesProcessor({ variableGenerators: variableGenerators || {} }),
 
       // =============================================
@@ -438,7 +452,7 @@ export class MessagesEngine {
       new ReactionFeedbackProcessor({ enabled: true }),
       // Message content processing (image encoding, multimodal)
       new MessageContentProcessor({
-        fileContext: fileContext || { enabled: true, includeFileUrl: false },
+        fileContext: fileContext || { enabled: true, includeFileUrl: true },
         isCanUseVideo: capabilities?.isCanUseVideo || (() => false),
         isCanUseVision: capabilities?.isCanUseVision || (() => true),
         model,
